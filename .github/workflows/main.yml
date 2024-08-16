@@ -1,0 +1,27 @@
+name: CI
+
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Enable Remote Desktop
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
+        Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
+    - name: Download Zrok
+      run: Invoke-WebRequest -Uri https://github.com/openziti/zrok/releases/download/v0.4.38/zrok_0.4.38_windows_amd64.tar.gz -OutFile zrok.tar.gz
+
+    - name: Extract Zrok
+      run: tar -xvf zrok.tar.gz
+
+    - name: Enable Zrok Environment
+      run: |
+        .\zrok.exe enable OgF6H3XqLgRN
+    - name: Start Zrok Share
+      run: |
+        .\zrok.exe share private --backend-mode tcpTunnel localhost:3389
