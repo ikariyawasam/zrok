@@ -14,9 +14,11 @@ jobs:
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
         Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
-    - name: Download Zrok
+   - name: Download Zrok
       run: |
-        $url = "https://github.com/openziti/zrok/releases/latest/download/zrok_windows_amd64.tar.gz"
+        $version = (Invoke-RestMethod https://api.github.com/repos/openziti/zrok/releases/latest).tag_name.TrimStart('v')
+        $url = "https://github.com/openziti/zrok/releases/download/v$version/zrok_${version}_windows_amd64.tar.gz"
+        Write-Host "Downloading zrok v$version..."
         Invoke-WebRequest -Uri $url -OutFile zrok.tar.gz
 
     - name: Extract Zrok
