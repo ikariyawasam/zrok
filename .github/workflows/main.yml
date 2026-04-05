@@ -14,7 +14,7 @@ jobs:
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
         Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
-   - name: Download Zrok
+    - name: Download Zrok
       run: |
         $version = (Invoke-RestMethod https://api.github.com/repos/openziti/zrok/releases/latest).tag_name.TrimStart('v')
         $url = "https://github.com/openziti/zrok/releases/download/v$version/zrok_${version}_windows_amd64.tar.gz"
@@ -31,14 +31,12 @@ jobs:
 
     - name: Start Zrok Share & Keep Alive
       run: |
-        # Start zrok in background, output to log file
         Start-Process -FilePath ".\zrok.exe" `
           -ArgumentList "share private --backend-mode tcpTunnel localhost:3389" `
           -RedirectStandardOutput "zrok_output.txt" `
           -RedirectStandardError "zrok_error.txt" `
           -NoNewWindow
 
-        # Wait for share token to appear in output
         Write-Host "Waiting for share token..."
         $timeout = 30
         $elapsed = 0
@@ -46,20 +44,24 @@ jobs:
           Start-Sleep -Seconds 2
           $elapsed += 2
           if (Test-Path "zrok_output.txt") {
-            $content = Get-Content "zrok_output.txt" -Raw
+            $content = Get-Content "zrok_output.txt" -Raw -ErrorAction SilentlyContinue
             if ($content -match "share token is '([^']+)'") {
               Write-Host "=========================================="
               Write-Host "SHARE TOKEN: $($matches[1])"
-              Write-Host "Run on your machine:"
+              Write-Host "Run on your Mac:"
               Write-Host "  zrok access private $($matches[1])"
-              Write-Host "Then RDP to: 127.0.0.1:<local-port>"
+              Write-Host "Then RDP to: 127.0.0.1:<port shown>"
               Write-Host "=========================================="
               break
             }
           }
         }
 
-        # Keep the job alive
+        if (Test-Path "zrok_error.txt") {
+          Write-Host "--- zrok errors ---"
+          Get-Content "zrok_error.txt"
+        }
+
         while ($true) {
           Start-Sleep -Seconds 60
           Write-Host "Still alive... $(Get-Date)"
