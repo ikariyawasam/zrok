@@ -37,32 +37,25 @@ jobs:
           -RedirectStandardError "zrok_error.txt" `
           -NoNewWindow
 
-        Write-Host "Waiting for share token..."
-        $timeout = 30
-        $elapsed = 0
-        while ($elapsed -lt $timeout) {
-          Start-Sleep -Seconds 2
-          $elapsed += 2
-          if (Test-Path "zrok_output.txt") {
-            $content = Get-Content "zrok_output.txt" -Raw -ErrorAction SilentlyContinue
-            if ($content -match "share token is '([^']+)'") {
-              Write-Host "=========================================="
-              Write-Host "SHARE TOKEN: $($matches[1])"
-              Write-Host "Run on your Mac:"
-              Write-Host "  zrok access private $($matches[1])"
-              Write-Host "Then RDP to: 127.0.0.1:<port shown>"
-              Write-Host "=========================================="
-              break
-            }
-          }
-        }
+        Write-Host "Waiting for zrok to start..."
+        Start-Sleep -Seconds 10
 
+        Write-Host "=== ZROK OUTPUT ==="
+        if (Test-Path "zrok_output.txt") {
+          Get-Content "zrok_output.txt"
+        }
+        Write-Host "=== ZROK ERRORS ==="
         if (Test-Path "zrok_error.txt") {
-          Write-Host "--- zrok errors ---"
           Get-Content "zrok_error.txt"
         }
 
         while ($true) {
-          Start-Sleep -Seconds 60
-          Write-Host "Still alive... $(Get-Date)"
+          Start-Sleep -Seconds 30
+          Write-Host "--- $(Get-Date) ---"
+          if (Test-Path "zrok_output.txt") {
+            Get-Content "zrok_output.txt"
+          }
+          if (Test-Path "zrok_error.txt") {
+            Get-Content "zrok_error.txt"
+          }
         }
