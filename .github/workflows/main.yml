@@ -1,10 +1,10 @@
 name: CI
-
 on: [push, workflow_dispatch]
 
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 9999
 
     steps:
     - name: Enable Remote Desktop
@@ -13,15 +13,52 @@ jobs:
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
         Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
+
     - name: Download Zrok
-      run: Invoke-WebRequest -Uri https://github.com/openziti/zrok/releases/download/v0.4.38/zrok_0.4.38_windows_amd64.tar.gz -OutFile zrok.tar.gz
+      run: |
+        $url = "https://github.com/openziti/zrok/releases/latest/download/zrok_windows_amd64.tar.gz"
+        Invoke-WebRequest -Uri $url -OutFile zrok.tar.gz
 
     - name: Extract Zrok
       run: tar -xvf zrok.tar.gz
 
     - name: Enable Zrok Environment
+      run: .\zrok.exe enable $env:ZROK_TOKEN
+      env:
+        ZROK_TOKEN: ${{ secrets.ZROK_TOKEN }}
+
+    - name: Start Zrok Share & Keep Alive
       run: |
-        .\zrok.exe enable OgF6H3XqLgRN
-    - name: Start Zrok Share
-      run: |
-        .\zrok.exe share private --backend-mode tcpTunnel localhost:3389
+        # Start zrok in background, output to log file
+        Start-Process -FilePath ".\zrok.exe" `
+          -ArgumentList "share private --backend-mode tcpTunnel localhost:3389" `
+          -RedirectStandardOutput "zrok_output.txt" `
+          -RedirectStandardError "zrok_error.txt" `
+          -NoNewWindow
+
+        # Wait for share token to appear in output
+        Write-Host "Waiting for share token..."
+        $timeout = 30
+        $elapsed = 0
+        while ($elapsed -lt $timeout) {
+          Start-Sleep -Seconds 2
+          $elapsed += 2
+          if (Test-Path "zrok_output.txt") {
+            $content = Get-Content "zrok_output.txt" -Raw
+            if ($content -match "share token is '([^']+)'") {
+              Write-Host "=========================================="
+              Write-Host "SHARE TOKEN: $($matches[1])"
+              Write-Host "Run on your machine:"
+              Write-Host "  zrok access private $($matches[1])"
+              Write-Host "Then RDP to: 127.0.0.1:<local-port>"
+              Write-Host "=========================================="
+              break
+            }
+          }
+        }
+
+        # Keep the job alive
+        while ($true) {
+          Start-Sleep -Seconds 60
+          Write-Host "Still alive... $(Get-Date)"
+        }
