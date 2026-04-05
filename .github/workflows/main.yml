@@ -22,7 +22,14 @@ jobs:
         Invoke-WebRequest -Uri $url -OutFile zrok.tar.gz
 
     - name: Extract Zrok
-      run: tar -xvf zrok.tar.gz
+      run: |
+        tar -xvf zrok.tar.gz
+        $zrok = Get-ChildItem -Recurse -Filter "zrok.exe" | Select-Object -First 1
+        Write-Host "Found zrok.exe at: $($zrok.FullName)"
+        if ($zrok.DirectoryName -ne (Get-Location).Path) {
+          Copy-Item $zrok.FullName -Destination ".\zrok.exe"
+        }
+        Write-Host "zrok.exe ready."
 
     - name: Enable Zrok Environment
       run: .\zrok.exe enable $env:ZROK_TOKEN
